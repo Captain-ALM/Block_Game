@@ -1,0 +1,127 @@
+'declare variables
+dir = Program.Directory
+appver = "1.0"
+appnom = "The Block Game"
+apptit = Text.Append(appnom + " ",appver)
+cpos = ""
+map = ""
+lbut = ""
+cchunk = 0
+worldp = dir + "\world.wld"
+world = ""
+gui = ""
+cgui = 0
+ingame = "False"
+
+'program
+init()
+runtime()
+
+Program.End()
+
+Sub init
+  'window init
+  GraphicsWindow.Show()
+  GraphicsWindow.Title = apptit
+  GraphicsWindow.CanResize = "False"
+  GraphicsWindow.Width = 850
+  GraphicsWindow.Height = 480
+  GraphicsWindow.BackgroundColor = "Gray"
+  'init font
+  GraphicsWindow.FontName = "Consolas"
+  GraphicsWindow.FontSize = 72
+  GraphicsWindow.FontBold = "True"
+  'define splash text
+  GraphicsWindow.PenColor = "Red"
+  GraphicsWindow.BrushColor = "Red"
+  sptxt = Shapes.AddText("Captain ALM")
+  Shapes.Move(sptxt,850/5,480/3)
+  Program.Delay(500)
+  initrunner()
+  Shapes.HideShape(sptxt)
+EndSub
+
+Sub initrunner
+  GraphicsWindow.FontSize = 48
+  GraphicsWindow.PenColor = "Red"
+  GraphicsWindow.BrushColor = "Red"
+  gui[1][1] = Shapes.AddText("The Block Game")
+  Shapes.Move(gui[1][1],50,20)
+  GraphicsWindow.FontSize = 24
+  GraphicsWindow.PenColor = "Black"
+  GraphicsWindow.BrushColor = "Black"
+  gui[1][2] = Controls.AddButton("Play World",50,135)
+  gui[1][3] = Controls.AddButton("Reset World",50,235)
+  gui[1][4] = Controls.AddButton("About Game",50,335)
+  gui[1][5] = Controls.AddButton("Quit Game",50,435)
+  cgui = 1
+  hidegui()
+  cgui = 0
+  
+  initgame()
+  cgui = 2
+  hidegui()
+  cgui = 0
+  
+  Controls.ButtonClicked = onbut
+EndSub
+
+Sub runtime
+  cgui = 1
+  showgui()
+  
+  While "True"
+    If butd Then
+      If lbut = gui[1][2] then
+        ingame = "True"
+      ElseIf lbut = gui[1][3] then
+        File.DeleteFile(worldp)
+        Sound.PlayChime()
+      ElseIf lbut = gui[1][4] then
+        Sound.PlayChime()
+        GraphicsWindow.ShowMessage("About The Block Game - By Captain ALM", apptit)
+      ElseIf lbut = gui[1][5] then
+        Program.End()
+      EndIf
+      butd = "False"
+    EndIf
+    If ingame Then
+      Shapes.SetText(sptxt,"Loading World...")
+      Shapes.ShowShape(sptxt)
+      world = File.ReadContents(worldp)
+      cpos = world["pos"]
+      map = world["map"]
+      
+      While ingame
+        
+        Program.Delay(10)
+      EndWhile
+    EndIf
+    Program.Delay(10)
+  EndWhile
+EndSub
+
+Sub initgame
+  
+EndSub
+
+Sub scroll
+  
+EndSub
+
+Sub hidegui
+  For i = 1 To Array.GetItemCount(gui[cgui])
+    Shapes.HideShape(gui[cgui][i])
+  EndFor
+EndSub
+
+Sub showgui
+  For i = 1 To Array.GetItemCount(gui[cgui])
+    Shapes.ShowShape(gui[cgui][i])
+  EndFor
+EndSub
+
+Sub onbut
+  butd = "True"
+  lbut = Controls.LastClickedButton
+EndSub
