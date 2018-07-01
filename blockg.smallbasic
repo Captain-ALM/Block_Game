@@ -6,7 +6,6 @@ apptit = Text.Append(appnom + " ",appver)
 cpos = ""
 map = ""
 lbut = ""
-cchunk = 0
 worldp = dir + "\world.wld"
 world = ""
 gui = ""
@@ -14,6 +13,14 @@ cgui = 0
 ingame = "False"
 blocktypes = ""
 gwlkey = ""
+saveworld = "False"
+playerrenderdata = ""
+renderreg = ""
+renderobjreg = ""
+imglstreg = ""
+
+'this array has the next render data "x,y" per item
+nextrenderarr = ""
 
 'program
 init()
@@ -64,6 +71,20 @@ Sub initgr
   blocktypes["die"]["image"] = "img:#ff0000"
   blocktypes["die"]["gravity"] = 0
   blocktypes["win"]["action"]["enter"] = "output:Failed Level,position:0*0"
+  
+  'register player renderer: the value is the image location or img:(colour) for a coloured block
+  playerrenderdata = "img:#095de5"
+  
+  'load all image data
+  If Text.StartsWith(playerrenderdata,"img:") <> "True" Then
+    imglstreg[playerrenderdata] = ImageList.LoadImage(playerrenderdata)
+  EndIf
+  bttmp = Array.GetAllIndices(blocktypes)
+  For i_img_ll = 1 To Array.GetItemCount(blocktypes)
+    If Text.StartsWith(blocktypes[bttmp[i_img_ll]]["image"],"img:") <> "True" Then
+      blocktypes[bttmp[i_img_ll]]["image"] = ImageList.LoadImage(blocktypes[bttmp[i_img_ll]]["image"])
+    EndIf
+  EndFor
 EndSub
 
 Sub initrunner
@@ -138,14 +159,37 @@ Sub runtime
       Shapes.SetText(sptxt,"Loading Game...")
       Shapes.ShowShape(sptxt)
       world = File.ReadContents(worldp)
-      cpos = world["pos"]
-      map = world["map"]
+      cpos = ""
+      map = ""
+      If world = "" then
+        cpos["x"] = 1
+        cpos["y"] = 1
+        world["pos"] = cpos
+        generate()
+        world["map"] = map
+      Else
+        cpos = world["pos"]
+        map = world["map"]
+      EndIf
       Shapes.HideShape(sptxt)
       showgui()
+      renderall()
       While ingame
         gametick()
         Program.Delay(10)
       EndWhile
+      If saveworld then
+        saveworld = "False"
+        Shapes.SetText(sptxt,"Saving Game...")
+        Shapes.ShowShape(sptxt)
+        world["pos"] = cpos
+        world["map"] = map
+        File.WriteContents(worldp,world)
+        Shapes.HideShape(sptxt)
+      EndIf
+      world = ""
+      cpos = ""
+      map = ""
       hidegui()
       cgui = 1
       showgui()
@@ -159,18 +203,117 @@ Sub initgame
 EndSub
 
 Sub generate
-  
+  'Layers:
+  'Air layer is 1-15
+  'Blocked layer is 16-25
+  'Death layer is 26-30
+  For i_gen = 1 To 30 Step 1
+    If i_gen < 16 Then
+      For i_gen_i = 1 To 53 Step 1
+        map[i_gen_i][i_gen] = "air"
+      EndFor
+    EndIf
+    If i_gen < 26 And i_gen > 15 Then
+      For i_gen_i = 1 To 53 Step 1
+        map[i_gen_i][i_gen] = "block"
+      EndFor
+    EndIf
+    If i_gen < 31 And i_gen > 25 Then
+      For i_gen_i = 1 To 53 Step 1
+        map[i_gen_i][i_gen] = "die"
+      EndFor
+    EndIf
+  EndFor
 EndSub
 
 Sub render
-  
+  If nextrenderarr <> "" Then
+    For i_odren = 1 To Array.GetItemCount(nextrenderarr)
+      i_render_x = Text.GetSubText(nextrenderarr[i_odren],1,Text.GetIndexOf(nextrenderarr[i_odren],",") - 1)
+      i_render_y = Text.GetSubTextToEnd(nextrenderarr[i_odren],Text.GetIndexOf(nextrenderarr[i_odren],",") + 1)
+      If i_render_x = cpos["x"] And i_render_y = cpos["y"] Then
+        renderreg[i_render_x][i_render_y] = playerrenderdata
+      Else
+        renderreg[i_render_x][i_render_y] = blocktypes[map[i_render_x][i_render_y]]["image"]
+      Endif
+      If Text.StartsWith(renderreg[i_render_x][i_render_y],"img:") Then
+        obc = GraphicsWindow.BrushColor
+        opc = GraphicsWindow.PenColor
+        GraphicsWindow.BrushColor = Text.GetSubTextToEnd(renderreg[i_render_x][i_render_y],5)
+        GraphicsWindow.PenColor = Text.GetSubTextToEnd(renderreg[i_render_x][i_render_y],5)
+        renderobjreg[i_render_x][i_render_y] = Shapes.AddRectangle(16,16)
+        Shapes.Move(renderobjreg[i_render_x][i_render_y],(i_render_x-1)*16,(i_render_y-1)*16)
+        GraphicsWindow.BrushColor = obc
+        GraphicsWindow.PenColor = opc
+      Else
+        renderobjreg[i_render_x][i_render_y] = Shapes.AddImage(imglstreg[renderreg[i_render_x][i_render_y]])
+        Shapes.Move(renderobjreg[i_render_x][i_render_y],(i_render_x-1)*16,(i_render_y-1)*16)
+      EndIf
+    EndFor
+  EndIf
+EndSub
+
+Sub unrender
+  If nextrenderarr <> "" Then
+    For i_odren = 1 To Array.GetItemCount(nextrenderarr)
+      i_render_x = Text.GetSubText(nextrenderarr[i_odren],1,Text.GetIndexOf(nextrenderarr[i_odren],",") - 1)
+      i_render_y = Text.GetSubTextToEnd(nextrenderarr[i_odren],Text.GetIndexOf(nextrenderarr[i_odren],",") + 1)
+      Shapes.Remove(renderobjreg[i_render_x][i_render_y])
+    EndFor
+  EndIf
+EndSub
+
+Sub renderall
+  For i_render_x = 1 To 53 Step 1
+    For i_render_y = 1 to 53 step 1
+      If i_render_x = cpos["x"] And i_render_y = cpos["y"] Then
+        renderreg[i_render_x][i_render_y] = playerrenderdata
+      Else
+        renderreg[i_render_x][i_render_y] = blocktypes[map[i_render_x][i_render_y]]["image"]
+      Endif
+      If Text.StartsWith(renderreg[i_render_x][i_render_y],"img:") Then
+        obc = GraphicsWindow.BrushColor
+        opc = GraphicsWindow.PenColor
+        GraphicsWindow.BrushColor = Text.GetSubTextToEnd(renderreg[i_render_x][i_render_y],5)
+        GraphicsWindow.PenColor = Text.GetSubTextToEnd(renderreg[i_render_x][i_render_y],5)
+        renderobjreg[i_render_x][i_render_y] = Shapes.AddRectangle(16,16)
+        Shapes.Move(renderobjreg[i_render_x][i_render_y],(i_render_x-1)*16,(i_render_y-1)*16)
+        GraphicsWindow.BrushColor = obc
+        GraphicsWindow.PenColor = opc
+      Else
+        renderobjreg[i_render_x][i_render_y] = Shapes.AddImage(imglstreg[renderreg[i_render_x][i_render_y]])
+        Shapes.Move(renderobjreg[i_render_x][i_render_y],(i_render_x-1)*16,(i_render_y-1)*16)
+      EndIf
+    EndFor
+  EndFor
+EndSub
+
+Sub unrenderall
+  For i_render_x = 1 To 53 Step 1
+    For i_render_y = 1 to 53 step 1
+      Shapes.Remove(renderobjreg[i_render_x][i_render_y])
+    EndFor
+  EndFor
+  renderobjreg = ""
+  renderreg = ""
 EndSub
 
 Sub gametick
-  If world[cpos["x"]][cpos["y"]]["gravity"] = 1 And world[cpos["x"]][cpos["y"]]["placement"] <> 1 And cpos["y"] < 30 and world[cpos["x"]][cpos["y"]+1]["placement"] <> 1 Then
+  'if player can fall due to gravity
+  If blocktypes[map[cpos["x"]][cpos["y"]]]["gravity"] = 1 And blocktypes[map[cpos["x"]][cpos["y"]]]["placement"] <> 1 And cpos["y"] < 30 and blocktypes[map[cpos["x"]][cpos["y"]+1]]["placement"] <> 1 Then
+    'rerender bits needed when player falls due to gravity #1
+    nextrenderarr = ""
+    nextrenderarr[1] = cpos["x"] + "," + cpos["y"]
+    'make player fall
     cpos["y"] = cpos["y"] + 1
+    'rerender bits needed when player falls due to gravity #2
+    nextrenderarr[2] = cpos["x"] + "," + cpos["y"]
+    unrender()
+    render()
+    nextrenderarr = ""
   EndIf
   If gwlkey = "Escape" Then
+    unrenderall()
     gwlkey = ""
     hidegui()
     cgui = 3
@@ -186,7 +329,7 @@ Sub gametick
         hidegui()
         cgui = 1
         ingame = "False"
-        'saveworld = true
+        saveworld = "True"
       ElseIf lbut = gui[3][5] then
         lbut = ""
         Program.End()
@@ -195,11 +338,13 @@ Sub gametick
         hidegui()
         cgui = 2
         showgui()
+        renderall()
       elseIf gwlkey = "Escape" Then
         gwlkey = ""
         hidegui()
         cgui = 2
         showgui()
+        renderall()
       EndIf
       Program.Delay(10)
     EndWhile
