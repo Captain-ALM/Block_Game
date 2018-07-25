@@ -1,0 +1,1 @@
+block_gen=name\=block_gen\;block\=block\;start\=16\;end\=25\;weight\=2\;order\=0\;altblock\=air\;;lava_gen=name\=lava_gen\;block\=die\;start\=26\;end\=30\;weight\=0\;order\=0\;altblock\=air\;;death_gen=name\=death_gen\;block\=die\;start\=17\;end\=22\;weight\=6\;order\=1\;;win_gen=name\=win_gen\;block\=win\;start\=18\;end\=18\;weight\=8\;order\=2\;min\=2\;max\=13\;;
