@@ -16,11 +16,10 @@ gwlkey = ""
 saveworld = "False"
 playerrenderdata = ""
 renderreg = ""
-'renderobjreg = ""
 imglstreg = ""
 'this array has the next render data "x,y" per item
 nextrenderarr = ""
-'stores if keys pressed or released
+'stores if keys are pressed or released
 keydata =""
 lpos = ""
 'layer gen array
@@ -29,6 +28,23 @@ layergenerator = ""
 toend = "False"
 pausenow ="False"
 skipnow = "False"
+heldblock = ""
+heldblockobj = ""
+heldbackobj = ""
+heldshown = ""
+heldpos = ""
+heldlm = 0
+'Edit block at Pos "x,y"
+editblockpos = ""
+newblock = ""
+'"x,y"
+mineblockpos = ""
+'"x,y"
+placeblockpos = ""
+useheld = ""
+autosave = "False"
+Not = "True=False;False=True;"
+
 
 'program
 init()
@@ -61,97 +77,49 @@ Sub init
 EndSub
 
 Sub initgr
-  'placement property: 0 = background 1 = inline
+  'placement property: 0 = background 1 = inline 2 = foreground
   blocktypes["air"]["placement"] = 0
   'image property: the value is the image location or img:(colour) for a coloured block
   blocktypes["air"]["image"] = "img:#ffffff"
   'gravity property: 0 = no gravity 1 = gravity
   blocktypes["air"]["gravity"] = 1
   
-  'register test blocks
-  blocktypes["block"]["placement"] = 1
-  blocktypes["block"]["image"] = "img:#000000"
-  blocktypes["win"]["placement"] = 0
-  blocktypes["win"]["image"] = "img:#1000ff"
-  blocktypes["win"]["gravity"] = 0
-  texec = ""
-  texec[1]["name"] = "output"
-  texec[1]["args"][1] = "Completed Level"
-  texec[2]["name"] = "generate"
-  texec[3]["name"] = "position"
-  texec[3]["args"][1] = 1
-  texec[3]["args"][2] = 1
-  blocktypes["win"]["action"]["enter"] = texec
-  blocktypes["die"]["placement"] = 0
-  blocktypes["die"]["image"] = "img:#ff0000"
-  blocktypes["die"]["gravity"] = 0
-  texec = ""
-  texec[1]["name"] = "output"
-  texec[1]["args"][1] = "Failed Level"
-  texec[2]["name"] = "position"
-  texec[2]["args"][1] = 1
-  texec[2]["args"][2] = 1
-  blocktypes["die"]["action"]["enter"] = texec
+  'register internal layer generator
+  cgenlayer["name"] = "air_gen"
+  cgenlayer["block"] = "air"
+  cgenlayer["start"] = 1
+  cgenlayer["end"] = 30
+  cgenlayer["weight"] = 0
+  cgenlayer["order"] = 0
+  cgenlayer["altblock"] = "air"
+  layergen[1] = cgenlayer
+  cgenlayer = ""
+  
+  playerrenderdata = ""
+  initgame()
   
   'register player renderer: the value is the image location or img:(colour) for a coloured block
-  playerrenderdata = "img:#18C4D1"
+  If playerrenderdata = "" Then
+    playerrenderdata = "img:#18C4D1"
+  EndIf
   
   'load all image data
   If Text.StartsWith(playerrenderdata,"img:") <> "True" Then
+    If Text.StartsWith(playerrenderdata,"\") And Text.StartsWith(playerrenderdata,"\\") <> "True" Then
+      playerrenderdata = dir + playerrenderdata
+    EndIf
     imglstreg[playerrenderdata] = ImageList.LoadImage(playerrenderdata)
   EndIf
   bttmp = Array.GetAllIndices(blocktypes)
   For i_img_ll = 1 To Array.GetItemCount(blocktypes)
     If Text.StartsWith(blocktypes[bttmp[i_img_ll]]["image"],"img:") <> "True" Then
+      'blocktypes[bttmp[i_img_ll]]["image"] = ImageList.LoadImage(blocktypes[bttmp[i_img_ll]]["image"])
+      If Text.StartsWith(blocktypes[bttmp[i_img_ll]]["image"],"\") And Text.StartsWith(blocktypes[bttmp[i_img_ll]]["image"],"\\") <> "True" Then
+        blocktypes[bttmp[i_img_ll]]["image"] = dir + blocktypes[bttmp[i_img_ll]]["image"]
+      EndIf
       blocktypes[bttmp[i_img_ll]]["image"] = ImageList.LoadImage(blocktypes[bttmp[i_img_ll]]["image"])
     EndIf
   EndFor
-  
-  'register internal layer generators
-  'Internal Layers:
-  'Air layer is 1-15
-  'Blocked layer 16-25
-  'Death Layer is 26-30
-  cgenlayer["name"] = "air_gen"
-  cgenlayer["block"] = "air"
-  cgenlayer["start"] = 1
-  cgenlayer["end"] = 15
-  cgenlayer["weight"] = 0
-  cgenlayer["order"] = 0
-  cgenlayer["altblock"] = "air"
-  layergen[1] = cgenlayer
-  cgenlayer["name"] = "block_gen"
-  cgenlayer["block"] = "block"
-  cgenlayer["start"] = 16
-  cgenlayer["end"] = 25
-  cgenlayer["weight"] = 2
-  cgenlayer["order"] = 0
-  cgenlayer["altblock"] = "air"
-  layergen[2] = cgenlayer
-  cgenlayer["name"] = "lava_gen"
-  cgenlayer["block"] = "die"
-  cgenlayer["start"] = 26
-  cgenlayer["end"] = 30
-  cgenlayer["weight"] = 0
-  cgenlayer["order"] = 0
-  cgenlayer["altblock"] = "air"
-  layergen[3] = cgenlayer
-  cgenlayer["name"] = "death_gen"
-  cgenlayer["block"] = "die"
-  cgenlayer["start"] = 17
-  cgenlayer["end"] = 22
-  cgenlayer["weight"] = 6
-  cgenlayer["order"] = 1
-  cgenlayer["altblock"] = ""
-  layergen[4] = cgenlayer
-  cgenlayer["name"] = "win_gen"
-  cgenlayer["block"] = "win"
-  cgenlayer["start"] = 18
-  cgenlayer["end"] = 18
-  cgenlayer["weight"] = 8
-  cgenlayer["order"] = 2
-  cgenlayer["altblock"] = ""
-  layergen[5] = cgenlayer
 EndSub
 
 Sub initrunner
@@ -171,7 +139,18 @@ Sub initrunner
   hidegui()
   cgui = 0
   
-  initgame()
+  'initgame()
+  GraphicsWindow.PenColor = "Silver"
+  GraphicsWindow.BrushColor = "Silver"
+  gui[2][1] = Shapes.AddRectangle(128,128)
+  Shapes.Move(gui[2][1], (850/2) - 64, GraphicsWindow.Height - (128+64))
+  Shapes.SetOpacity(gui[2][1],50)
+  heldbackobj = gui[2][1]
+  gui[2][2] = ""
+  heldblockobj = gui[2][2]
+  heldblock = ""
+  heldpos = "True"
+  heldshown = "True"
   cgui = 2
   hidegui()
   cgui = 0
@@ -184,12 +163,15 @@ Sub initrunner
   GraphicsWindow.BrushColor = "Black"
   GraphicsWindow.FontSize = 24
   gui[3][2] = Shapes.AddText("Game Paused")
-  Shapes.Move(gui[3][2],850/5,40)
-  gui[3][3] = Controls.AddButton("Return to Menu",850/5,185)
-  gui[3][4] = Controls.AddButton("Save and Return to Menu",850/5,265)
-  gui[3][5] = Controls.AddButton("Close Game",850/5,425)
-  gui[3][6] = Controls.AddButton("Return to Game",850/5,105)
-  gui[3][7] = Controls.AddButton("Save and Close",850/5,345)
+  Shapes.Move(gui[3][2],850/2,40)
+  gui[3][3] = Controls.AddButton("Return to Menu",850/8,185)
+  gui[3][4] = Controls.AddButton("Save and Return to Menu",850/8,265)
+  gui[3][5] = Controls.AddButton("Close Game",850/8,425)
+  gui[3][6] = Controls.AddButton("Return to Game",850/8,105)
+  gui[3][7] = Controls.AddButton("Save and Close",850/8,345)
+  gui[3][8] = Controls.AddButton("Hide Held Block", 5*(850/8), 265)
+  gui[3][9] = Controls.AddButton("Turn On  Pause-Save", 5*(850/8), 425)
+  gui[3][10] = Controls.AddButton("Top Lock    Held Block", 5*(850/8), 345)
   cgui = 3
   hidegui()
   cgui = 0
@@ -246,12 +228,24 @@ Sub runtime
         world["pos"] = cpos
         generate()
         world["map"] = map
+        world["heldshown"] = "True"
+        heldshown = world["heldshown"]
+        world["autosave"] = "False"
+        autosave = world["autosave"]
+        world["heldlock"] = 0
+        heldlm = world["heldlock"]
+        heldblock = ""
       Else
         cpos = world["pos"]
         map = world["map"]
+        heldshown = world["heldshown"]
+        autosave = world["autosave"]
+        heldblock = world["held"]
+        heldlm = world["heldlock"]
       EndIf
       Shapes.HideShape(sptxt)
       showgui()
+      updaterenderheld()
       renderall()
       While ingame
         gametick()
@@ -259,12 +253,17 @@ Sub runtime
       EndWhile
       pausenow = "False"
       skipnow = "False"
+      hidegui()
       If saveworld then
         saveworld = "False"
         Shapes.SetText(sptxt,"Saving Game...")
         Shapes.ShowShape(sptxt)
         world["pos"] = cpos
         world["map"] = map
+        world["heldshown"] = heldshown
+        world["autosave"] = autosave
+        world["heldlock"] = heldlm
+        world["held"] = heldblock
         File.WriteContents(worldp,world)
         Shapes.HideShape(sptxt)
       EndIf
@@ -275,7 +274,6 @@ Sub runtime
       world = ""
       cpos = ""
       map = ""
-      hidegui()
       cgui = 1
       showgui()
     EndIf
@@ -284,11 +282,36 @@ Sub runtime
 EndSub
 
 Sub initgame
-  
+  files = File.GetFiles(dir)
+  For i_filelod = 1 To Array.GetItemCount(files)
+    cfile = files[i_filelod]
+    If Text.EndsWith(cfile,".b") Or Text.EndsWith(cfile,".block") Or Text.EndsWith(cfile,".blocks") Then
+      blockfile = File.ReadContents(cfile)
+      blockfileindx = Array.GetAllIndices(blockfile)
+      For j_filelod = 1 To Array.GetItemCount(blockfileindx)
+        blocktypes[blockfileindx[j_filelod]] = blockfile[blockfileindx[j_filelod]]
+      EndFor
+    ElseIf Text.EndsWith(cfile,".g") Or Text.EndsWith(cfile,".gen") Or Text.EndsWith(cfile,".gens") Or Text.EndsWith(cfile,".generator") Or Text.EndsWith(cfile,".generators") Then
+      genfile = File.ReadContents(cfile)
+      genfileindx = Array.GetAllIndices(genfile)
+      For j_filelod = 1 To Array.GetItemCount(genfileindx)
+        If layergen = "" then
+          layergen[1] = genfile[genfileindx[j_filelod]]
+          layergen[1]["name"] = genfileindx[j_filelod]
+        Else
+          layergen[Array.GetItemCount(layergen) + 1] = genfile[genfileindx[j_filelod]]
+          layergen[Array.GetItemCount(layergen)]["name"] = genfileindx[j_filelod]
+        EndIf
+      EndFor
+    elseif Text.EndsWith(cfile,".p") Or Text.EndsWith(cfile,".player") then
+      plyfile = File.ReadContents(cfile)
+      playerrenderdata = plyfile
+    EndIf
+  EndFor
 EndSub
 
 Sub generate
-  'Layer generator array: name,(generator name) block,(block name) start,(start layer (1-30)) end,(end layer) weight,(randomiser, set to 0 to make the whole layer the block) order,(order of generation) altblock,(block used when weight does not generate the block)
+  'Layer generator array: name,(generator name) block,(block name) start,(start layer (1-30)) end,(end layer) weight,(randomiser, set to 0 to make the whole layer the block) order,(order of generation) altblock,(block used when weight does not generate the block) , min (min count of blocks generated) , max (max count of blocks generated)
   'Order using generator order values
   layergenerator = ""
   clayer = ""
@@ -316,31 +339,89 @@ Sub generate
         If i_gen > 30 Then
           Goto endgenloop
         Else
-          For i_gen_i  = 1 to 53 step 1
-            If clayer["weight"] < 1 then
-              If blocktypes[clayer["block"]] <> "" then
-                map[i_gen_i][i_gen] = clayer["block"]
-              Else
-                map[i_gen_i][i_gen] = "air"
-              EndIf
-            Else
-              If Math.GetRandomNumber(clayer["weight"]) = Math.Round(clayer["weight"]/2) then
+          If clayer["weight"] > 0 then
+            'Used if weight > 0
+            If clayer["min"] = "" or clayer["min"] < 0 or clayer["min"] > 53 then
+              clayer["min"] = 0
+            EndIf
+            If clayer["max"] = "" or clayer["max"] < 1 or clayer["max"] > 53 then
+              clayer["max"] = 53
+            EndIf
+            If clayer["min"] > clayer["max"] then
+              clayer["min"] = clayer["max"]
+            EndIf
+            j_gen = clayer["min"]
+            k_gen = clayer["max"]
+          Else
+            j_gen = 0
+            k_gen = 0
+          EndIf
+          gendonereg = ""
+          If j_gen = 0 then
+            For i_gen_i  = 1 to 53 step 1
+              If clayer["weight"] < 1 Or clayer["weight"] = "" then
                 If blocktypes[clayer["block"]] <> "" then
                   map[i_gen_i][i_gen] = clayer["block"]
                 Else
                   map[i_gen_i][i_gen] = "air"
                 EndIf
-              else
-                If blocktypes[clayer["altblock"]] <> "" then
-                  map[i_gen_i][i_gen] = clayer["altblock"]
-                Else
-                  If map[i_gen_i][i_gen] = "" then
+                j_gen = j_gen - 1
+                k_gen = k_gen -1
+              Else
+                If Math.GetRandomNumber(clayer["weight"]) = Math.Round(clayer["weight"]/2) And k_gen > 0 then
+                  If blocktypes[clayer["block"]] <> "" then
+                    map[i_gen_i][i_gen] = clayer["block"]
+                  Else
                     map[i_gen_i][i_gen] = "air"
                   EndIf
+                  j_gen = j_gen - 1
+                  k_gen = k_gen -1
+                else
+                  If blocktypes[clayer["altblock"]] <> "" then
+                    map[i_gen_i][i_gen] = clayer["altblock"]
+                  Else
+                    If map[i_gen_i][i_gen] = "" then
+                      map[i_gen_i][i_gen] = "air"
+                    EndIf
+                  EndIf
+                endif
+              EndIf
+            EndFor
+          Else
+            While j_gen > 0
+              For i_gen_i  = 1 to 53 step 1
+                If clayer["weight"] < 1 Or clayer["weight"] = "" then
+                  If blocktypes[clayer["block"]] <> "" then
+                    map[i_gen_i][i_gen] = clayer["block"]
+                  Else
+                    map[i_gen_i][i_gen] = "air"
+                  EndIf
+                  gendonereg[i_gen_i] = "True"
+                  j_gen = j_gen - 1
+                  k_gen = k_gen -1
+                Else
+                  If Math.GetRandomNumber(clayer["weight"]) = Math.Round(clayer["weight"]/2) And k_gen > 0 And gendonereg[i_gen_i] <> "True" then
+                    If blocktypes[clayer["block"]] <> "" then
+                      map[i_gen_i][i_gen] = clayer["block"]
+                    Else
+                      map[i_gen_i][i_gen] = "air"
+                    EndIf
+                    gendonereg[i_gen_i] = "True"
+                    j_gen = j_gen - 1
+                    k_gen = k_gen -1
+                  else
+                    If blocktypes[clayer["altblock"]] <> "" then
+                      map[i_gen_i][i_gen] = clayer["altblock"]
+                    Else
+                      If map[i_gen_i][i_gen] = "" then
+                        map[i_gen_i][i_gen] = "air"
+                      EndIf
+                    EndIf
+                  endif
                 EndIf
-              endif
-            EndIf
-          EndFor
+              EndFor
+            EndWhile
+          EndIf
         EndIf
       EndFor
       endgenloop:
@@ -353,7 +434,7 @@ Sub render
     For i_odren = 1 To Array.GetItemCount(nextrenderarr)
       i_render_x = Text.GetSubText(nextrenderarr[i_odren],1,Text.GetIndexOf(nextrenderarr[i_odren],",") - 1)
       i_render_y = Text.GetSubTextToEnd(nextrenderarr[i_odren],Text.GetIndexOf(nextrenderarr[i_odren],",") + 1)
-      If i_render_x = cpos["x"] And i_render_y = cpos["y"] Then
+      If i_render_x = cpos["x"] And i_render_y = cpos["y"] And blocktypes[map[i_render_x][i_render_y]]["placement"] <> 2 Then
         renderreg[i_render_x][i_render_y] = playerrenderdata
       Else
         renderreg[i_render_x][i_render_y] = blocktypes[map[i_render_x][i_render_y]]["image"]
@@ -378,7 +459,7 @@ Sub unrender
     For i_odren = 1 To Array.GetItemCount(nextrenderarr)
       i_render_x = Text.GetSubText(nextrenderarr[i_odren],1,Text.GetIndexOf(nextrenderarr[i_odren],",") - 1)
       i_render_y = Text.GetSubTextToEnd(nextrenderarr[i_odren],Text.GetIndexOf(nextrenderarr[i_odren],",") + 1)
-      obc =GraphicsWindow.BrushColor
+      obc = GraphicsWindow.BrushColor
       opc = GraphicsWindow.PenColor
       GraphicsWindow.BrushColor = GraphicsWindow.BackgroundColor 
       GraphicsWindow.PenColor = GraphicsWindow.BackgroundColor
@@ -392,7 +473,7 @@ EndSub
 Sub renderall
   For i_render_x = 1 To 53 Step 1
     For i_render_y = 1 to 53 step 1
-      If i_render_x = cpos["x"] And i_render_y = cpos["y"] Then
+      If i_render_x = cpos["x"] And i_render_y = cpos["y"] And blocktypes[map[i_render_x][i_render_y]]["placement"] <> 2 Then
         renderreg[i_render_x][i_render_y] = playerrenderdata
       Else
         renderreg[i_render_x][i_render_y] = blocktypes[map[i_render_x][i_render_y]]["image"]
@@ -413,7 +494,7 @@ Sub renderall
 EndSub
 
 Sub unrenderall
-  obc =GraphicsWindow.BrushColor
+  obc = GraphicsWindow.BrushColor
   opc = GraphicsWindow.PenColor
   GraphicsWindow.BrushColor = GraphicsWindow.BackgroundColor 
   GraphicsWindow.PenColor = GraphicsWindow.BackgroundColor
@@ -507,13 +588,62 @@ Sub gametick
   checkentlev()
   act()
   lpos = cpos
+  blockkeyedittick()
+  If heldlm = 1 Then
+    If heldpos Then
+      moveheld()
+    EndIf
+  ElseIf heldlm = 2 then
+    If heldpos <> "True" Then
+      moveheld()
+    EndIf
+  Else
+    If heldpos Then
+      If cpos["y"] > 15 Then
+        moveheld()
+      EndIf
+    Else
+      If cpos["y"] < 16 Then
+        moveheld()
+      EndIf
+    EndIf
+  EndIf
   pgsa:
   If gwlkey = "Escape" Or pausenow Then
     pausenow = "False"
     unrenderall()
     gwlkey = ""
     hidegui()
+    If autosave Then
+      Shapes.SetText(sptxt,"Saving Game...")
+      Shapes.ShowShape(sptxt)
+      world["pos"] = cpos
+      world["map"] = map
+      world["heldshown"] = heldshown
+      world["autosave"] = autosave
+      world["heldlock"] = heldlm
+      world["held"] = heldblock
+      File.WriteContents(worldp,world)
+      Shapes.HideShape(sptxt)
+    EndIf
     cgui = 3
+    If heldshown Then
+      Controls.SetButtonCaption(gui[3][8],"Hide Held Block")
+    Else
+      Controls.SetButtonCaption(gui[3][8],"Show Held Block")
+    EndIf
+    If autosave Then
+      Controls.SetButtonCaption(gui[3][9],"Turn Off Pause-Save")
+    Else
+      Controls.SetButtonCaption(gui[3][9],"Turn On  Pause-Save")
+    EndIf
+    If heldlm = 1 Then
+      Controls.SetButtonCaption(gui[3][10],"Bottom Lock Held Block")
+    ElseIf heldlm = 2 then
+      Controls.SetButtonCaption(gui[3][10],"Auto Pos    Held Block")
+    Else
+      Controls.SetButtonCaption(gui[3][10],"Top Lock    Held Block")
+    EndIf
     showgui()
     While cgui = 3
       If lbut = gui[3][3] Then
@@ -546,6 +676,36 @@ Sub gametick
         cgui = 2
         showgui()
         renderall()
+      ElseIf lbut = gui[3][8] then
+        lbut = ""
+        If heldshown Then
+          heldshown = "False"
+          Controls.SetButtonCaption(gui[3][8],"Show Held Block")
+        Else
+          heldshown = "True"
+          Controls.SetButtonCaption(gui[3][8],"Hide Held Block")
+        EndIf
+      ElseIf lbut = gui[3][9] then
+        lbut = ""
+        If autosave Then
+          autosave = "False"
+          Controls.SetButtonCaption(gui[3][9],"Turn On  Pause-Save")
+        Else
+          autosave = "True"
+          Controls.SetButtonCaption(gui[3][9],"Turn Off Pause-Save")
+        EndIf
+      ElseIf lbut = gui[3][10] then
+        lbut = ""
+        If heldlm = 1 Then
+          heldlm = 2
+          Controls.SetButtonCaption(gui[3][10],"Auto Pos    Held Block")
+        ElseIf heldlm = 2 then
+          heldlm = 0
+          Controls.SetButtonCaption(gui[3][10],"Top Lock    Held Block")
+        Else
+          heldlm = 1
+          Controls.SetButtonCaption(gui[3][10],"Bottom Lock Held Block")
+        EndIf
       elseIf gwlkey = "Escape" Then
         gwlkey = ""
         hidegui()
@@ -573,13 +733,33 @@ EndSub
 
 Sub hidegui
   For i = 1 To Array.GetItemCount(gui[cgui])
-    Shapes.HideShape(gui[cgui][i])
+    If cgui <> 2 Then
+      If gui[cgui][i] <> "" Then
+        Shapes.HideShape(gui[cgui][i])
+      EndIf
+    Else
+      If heldshown then
+        If gui[cgui][i] <> "" Then
+          Shapes.HideShape(gui[cgui][i])
+        EndIf
+      EndIf
+    EndIf
   EndFor
 EndSub
 
 Sub showgui
   For i = 1 To Array.GetItemCount(gui[cgui])
-    Shapes.ShowShape(gui[cgui][i])
+    If cgui <> 2 Then
+      If gui[cgui][i] <> "" Then
+        Shapes.ShowShape(gui[cgui][i])
+      EndIf
+    Else
+      If heldshown then
+        If gui[cgui][i] <> "" Then
+          Shapes.ShowShape(gui[cgui][i])
+        EndIf
+      EndIf
+    EndIf
   EndFor
 EndSub
 
@@ -631,21 +811,29 @@ Sub act
         keydata = ""
       elseif cactnom = "generate" then
         unrenderall()
+        hidegui()
         Shapes.SetText(sptxt,"Regenerating...")
         Shapes.ShowShape(sptxt)
         world["pos"] = cpos
         generate()
         world["map"] = map
         Shapes.HideShape(sptxt)
+        showgui()
         renderall()
       elseif cactnom = "save" then
         unrenderall()
+        hidegui()
         Shapes.SetText(sptxt,"Saving Game...")
         Shapes.ShowShape(sptxt)
         world["pos"] = cpos
         world["map"] = map
+        world["heldshown"] = heldshown
+        world["autosave"] = autosave
+        world["heldlock"] = heldlm
+        world["held"] = heldblock
         File.WriteContents(worldp,world)
         Shapes.HideShape(sptxt)
+        showgui()
         renderall()
       elseif cactnom = "pause" then
         pausenow =  "True"
@@ -659,11 +847,17 @@ Sub act
         skipnow = "True"
       elseif cactnom = "setblock" or cactnom = "set_block" or cactnom = "set block" then
         If blocktypes[cactargs[1]] <> "" then
-          map[cpos["x"]][cpos["y"]] = cactargs[1]
+          'map[cpos["x"]][cpos["y"]] = cactargs[1]
+          newblock = cactargs[1]
+          editblockpos = cpos["x"] + "," + cpos["y"]
+          editblock()
         EndIf
       elseif cactnom = "setblockat" or cactnom = "set_block_at" or cactnom = "set block at" then
         If blocktypes[cactargs[1]] <> "" and cactargs[2] <> "" and cactargs[3] <> "" then
-          map[cactargs[2]][cactargs[3]] = cactargs[1]
+          'map[cactargs[2]][cactargs[3]] = cactargs[1]
+          newblock = cactargs[1]
+          editblockpos = cactargs[2] + "," + cactargs[3]
+          editblock()
         EndIf
       elseif cactnom = "left" then
         nextrenderarr = ""
@@ -729,7 +923,299 @@ Sub act
         nextrenderarr[2] = cpos["x"] + "," + cpos["y"]
         render()
         nextrenderarr = ""
+      elseif cactnom = "setheldblock" or cactnom = "set held block" or cactnom = "set_held_block" then
+        If blocktypes[cactargs[1]] <> "" then
+          heldblock = cactargs[1]
+        elseif cactargs[1] = "" then
+          heldblock = ""
+        EndIf
+        updaterenderheld()
+      elseif cactnom = "mineat" or cactnom = "mine at" or cactnom = "mine_at" then
+        If cactargs[1] = "" or cactargs[1] < 0 or cactargs[1] > 53 then
+          testcon1 = "True"
+        Else
+          testcon1 = "False"
+        EndIf
+        If cactargs[2] = "" or cactargs[2] < 0 or cactargs[2] > 30 then
+          testcon2 = "True"
+        Else
+          testcon2 = "False"
+        EndIf
+        If testcon1 <> "True" and testcon2 <> "True" then
+          If cactargs[3] <> "True" then
+            useheld = "True"
+          Else
+            useheld = "False"
+          EndIf
+          mineblockpos = cactargs[1] + "," + cactargs[2]
+          mineblock()
+        EndIf
+      elseif cactnom = "placeat" or cactnom = "place at" or cactnom = "place_at" then
+        If cactargs[1] = "" or cactargs[1] < 0 or cactargs[1] > 53 then
+          testcon1 = "True"
+        Else
+          testcon1 = "False"
+        EndIf
+        If cactargs[2] = "" or cactargs[2] < 0 or cactargs[2] > 30 then
+          testcon2 = "True"
+        Else
+          testcon2 = "False"
+        EndIf
+        If testcon1 <> "True" and testcon2 <> "True" then
+          If cactargs[3] = "" or blocktypes[cactargs[3]] = "" then
+            useheld = "True"
+          Else
+            useheld = "False"
+            newblock = cactargs[3]
+          EndIf
+          placeblockpos = cactargs[1] + "," + cactargs[2]
+          placeblock()
+        EndIf
+      elseif cactnom = "mine" or cactnom = "place" then
+        tmpblockpos = ""
+        If cactargs[2] = "" or blocktypes[cactargs[2]] = "" or cactargs[2] <> "True" then
+          useheld = "True"
+        Else
+          useheld = "False"
+          If cactnom = "place" then
+            newblock = cactargs[2]
+          EndIf
+        EndIf
+        If cactargs[1] = 0 then
+          tmpblockpos = (cpos["x"]) + "," + (cpos["y"])
+        elseIf cactargs[1] = 1 then
+          tmpblockpos = (cpos["x"]) + "," + (cpos["y"]-1)
+        elseIf cactargs[1] = 2 then
+          tmpblockpos = (cpos["x"]+1) + "," + (cpos["y"]-1)
+        elseIf cactargs[1] = 3 then
+          tmpblockpos = (cpos["x"]+1) + "," + (cpos["y"])
+        elseIf cactargs[1] = 4 then
+          tmpblockpos = (cpos["x"]+1) + "," + (cpos["y"]+1)
+        elseIf cactargs[1] = 5 then
+          tmpblockpos = (cpos["x"]) + "," + (cpos["y"]+1)
+        elseIf cactargs[1] = 6 then
+          tmpblockpos = (cpos["x"]-1) + "," + (cpos["y"]+1)
+        elseIf cactargs[1] = 7 then
+          tmpblockpos = (cpos["x"]-1) + "," + (cpos["y"])
+        elseIf cactargs[1] = 8 then
+          tmpblockpos = (cpos["x"]-1) + "," + (cpos["y"]-1)
+        EndIf
+        If cactnom = "mine" then
+          mineblockpos = tmpblockpos
+          mineblock()
+        Else
+          placeblockpos = tmpblockpos
+          placeblock()
+        EndIf
       EndIf
     EndFor
   EndWhile
+EndSub
+
+Sub updaterenderheld
+  Shapes.Remove(heldblockobj)
+  If heldblock <> "" And blocktypes[heldblock] <> "" Then
+    If Text.StartsWith(blocktypes[heldblock]["image"],"img:") Then
+      obc = GraphicsWindow.BrushColor
+      opc = GraphicsWindow.PenColor
+      GraphicsWindow.BrushColor = Text.GetSubTextToEnd(blocktypes[heldblock]["image"],5)
+      GraphicsWindow.PenColor = Text.GetSubTextToEnd(blocktypes[heldblock]["image"],5)
+      gui[2][2] = Shapes.AddRectangle(64,64)
+      Shapes.Move(gui[2][2], Shapes.GetLeft(gui[2][1]) + 32, Shapes.GetTop(gui[2][1]) + 32)
+      GraphicsWindow.BrushColor = obc
+      GraphicsWindow.PenColor = opc
+    Else
+      gui[2][2] = Shapes.AddImage(imglstreg[blocktypes[heldblock]["image"]])
+      If ImageList.GetHeightOfImage(imglstreg[blocktypes[heldblock]["image"]]) <> 64 Or ImageList.GetWidthOfImage(imglstreg[blocktypes[heldblock]["image"]]) <> 64 Then
+        Controls.SetSize(gui[2][2],64,64)
+      EndIf
+      Shapes.Move(gui[2][2], Shapes.GetLeft(gui[2][1]) + 32, Shapes.GetTop(gui[2][1]) + 32)
+    EndIf
+    Shapes.SetOpacity(gui[2][2], 75)
+    heldblockobj = gui[2][2]
+  Else
+    gui[2][2] = ""
+    heldbackobj = ""
+    heldblock = ""
+  EndIf
+  If heldshown <> "True" Then
+    Shapes.HideShape(gui[2][1])
+    Shapes.HideShape(gui[2][2])
+  Else
+    Shapes.ShowShape(gui[2][1])
+    Shapes.ShowShape(gui[2][2])
+  EndIf
+EndSub
+
+Sub moveheld
+  If heldpos Then
+    Shapes.Move(gui[2][1],(850/2) - 64, 64)
+    heldpos = "False"
+  Else
+    Shapes.Move(gui[2][1],(850/2) - 64, GraphicsWindow.Height - (128 + 64))
+    heldpos = "True"
+  EndIf
+  If heldblock <> "" Then
+    Shapes.Move(gui[2][2], Shapes.GetLeft(gui[2][1]) + 32, Shapes.GetTop(gui[2][1]) + 32)
+  EndIf
+EndSub
+
+Sub editblock
+  blockedit_x = Text.GetSubText(editblockpos,1,Text.GetIndexOf(editblockpos,",") - 1)
+  blockedit_y = Text.GetSubTextToEnd(editblockpos,Text.GetIndexOf(editblockpos,",") + 1)
+  If blocktypes[newblock] <> "" Then
+    map[blockedit_x][blockedit_y] = newblock
+  EndIf
+  nextrenderarr = ""
+  nextrenderarr[1] = editblockpos
+  render()
+  nextrenderarr = ""
+  editblockpos = ""
+  newblock = ""
+EndSub
+
+Sub mineblock
+  blockmine_x = Text.GetSubText(mineblockpos,1,Text.GetIndexOf(mineblockpos,",") - 1)
+  blockmine_y = Text.GetSubTextToEnd(mineblockpos,Text.GetIndexOf(mineblockpos,",") + 1)
+  If blocktypes[map[blockmine_x][blockmine_y]]["mineable"] Then
+    editblockpos = blockmine_x + "," + blockmine_y
+    newblock = "air"
+    If useheld Then
+      heldblock = map[blockmine_x][blockmine_y]
+      updaterenderheld()
+    EndIf
+    tmpobnbm = map[blockedit_x][blockedit_y]
+    editblock()
+    If blocktypes[tmpobnbm]["action"]["mine"] <> "" Then
+      Stack.PushValue("actions_i", blocktypes[tmpobnbm]["action"]["mine"])
+    EndIf
+  EndIf
+  mineblockpos = ""
+  useheld = ""
+EndSub
+
+Sub placeblock
+  blockplace_x = Text.GetSubText(placeblockpos,1,Text.GetIndexOf(placeblockpos,",") - 1)
+  blockplace_y = Text.GetSubTextToEnd(placeblockpos,Text.GetIndexOf(placeblockpos,",") + 1)
+  If useheld Then
+    newblock = heldblock
+  EndIf
+  If blocktypes[newblock]["placeable"] And blocktypes[map[blockplace_x][blockplace_y]]["placement"] = 0 And map[blockplace_x][blockplace_y] <> newblock Then
+    If (blockplace_x = cpos["x"] And blockplace_y = cpos["y"] And blocktypes[newblock]["placement"] <> 1) Or (blockplace_x <> cpos["x"] Or blockplace_y <> cpos["y"]) Then
+      editblockpos = blockplace_x + "," + blockplace_y
+      If useheld Then
+        heldblock = ""
+        updaterenderheld()
+      EndIf
+      editblock()
+      If blocktypes[map[blockplace_x][blockplace_y]]["action"]["place"] <> "" Then
+        Stack.PushValue("actions_i", blocktypes[map[blockplace_x][blockplace_y]]["action"]["place"])
+      EndIf
+    EndIf
+  EndIf
+  placeblockpos = ""
+  newblock = ""
+  useheld = ""
+EndSub
+
+Sub blockkeyedittick
+  If keydata["Y"] Or keydata["NumPad8"] Or keydata["D2"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]) + "," + (cpos["y"]-1)
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]) + "," + (cpos["y"]-1)
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["U"] Or keydata["NumPad9"] Or keydata["D3"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]+1) + "," + (cpos["y"]-1)
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]+1) + "," + (cpos["y"]-1)
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["J"] Or keydata["NumPad6"] Or keydata["D4"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]+1) + "," + (cpos["y"])
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]+1) + "," + (cpos["y"])
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["M"] Or keydata["NumPad3"] Or keydata["D5"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]+1) + "," + (cpos["y"]+1)
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]+1) + "," + (cpos["y"]+1)
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["N"] Or keydata["NumPad2"] Or keydata["D6"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]) + "," + (cpos["y"]+1)
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]) + "," + (cpos["y"]+1)
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["B"] Or keydata["NumPad1"] Or keydata["D7"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]-1) + "," + (cpos["y"]+1)
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]-1) + "," + (cpos["y"]+1)
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["G"] Or keydata["NumPad4"] Or keydata["D8"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]-1) + "," + (cpos["y"])
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]-1) + "," + (cpos["y"])
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["T"] Or keydata["NumPad7"] Or keydata["D9"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]-1) + "," + (cpos["y"]-1)
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]-1) + "," + (cpos["y"]-1)
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
+  If keydata["H"] Or keydata["NumPad5"] Or keydata["D1"] Then
+    If heldblock = "" Then
+      mineblockpos = (cpos["x"]) + "," + (cpos["y"])
+      useheld = "True"
+      mineblock()
+    Else
+      placeblockpos = (cpos["x"]) + "," + (cpos["y"])
+      useheld = "True"
+      placeblock()
+    EndIf
+  EndIf
 EndSub
